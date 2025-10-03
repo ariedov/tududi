@@ -15,6 +15,9 @@ const config = getConfig();
 const API_VERSION = process.env.API_VERSION || 'v1';
 const API_BASE_PATH = `/api/${API_VERSION}`;
 
+const swaggerUi = require('swagger-ui-express');
+const swaggerJsdoc = require('swagger-jsdoc');
+
 const app = express();
 
 // Session store
@@ -69,6 +72,23 @@ app.use(
         },
     })
 );
+
+// Swagger setup
+const swaggerOptions = {
+    definition: {
+        openapi: '3.0.0',
+        info: {
+            title: 'Tududi API',
+            version: '1.0.0',
+            description: 'API documentation for Tududi task management',
+        },
+        servers: [{ url: '/api' }],
+    },
+    apis: [path.join(__dirname, 'routes', '*.js')], // Path to API routes
+};
+
+const swaggerSpec = swaggerJsdoc(swaggerOptions);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Static files
 if (config.production) {

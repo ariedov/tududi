@@ -66,35 +66,18 @@ async function updateNoteTags(note, tagsArray, userId) {
 
 /**
  * @swagger
- * /api/notes:
+ * /notes:
  *   get:
- *     summary: Get all notes
- *     tags: [Notes]
- *     security:
- *       - cookieAuth: []
+ *     summary: Get all notes for the authenticated user
  *     parameters:
  *       - in: query
  *         name: order_by
  *         schema:
  *           type: string
- *           example: "title:asc"
- *         description: Sort order (field:direction)
- *       - in: query
- *         name: project_id
- *         schema:
- *           type: integer
- *         description: Filter by project ID
+ *         description: Order by field and direction (e.g., title:asc)
  *     responses:
  *       200:
  *         description: List of notes
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/Note'
- *       401:
- *         description: Unauthorized
  */
 router.get('/notes', async (req, res) => {
     try {
@@ -182,53 +165,29 @@ router.get(
 
 /**
  * @swagger
- * /api/note:
+ * /note:
  *   post:
  *     summary: Create a new note
- *     tags: [Notes]
- *     security:
- *       - cookieAuth: []
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - title
- *               - content
  *             properties:
  *               title:
  *                 type: string
- *                 description: Note title
- *                 example: "Meeting notes"
  *               content:
  *                 type: string
- *                 description: Note content (Markdown supported)
- *                 example: "# Meeting Summary\n- Point 1\n- Point 2"
- *               color:
- *                 type: string
- *                 description: Background color (hex)
- *                 example: "#B71C1C"
  *               project_uid:
  *                 type: string
- *                 description: Associated project UID
  *               tags:
  *                 type: array
  *                 items:
  *                   type: string
- *                 description: Array of tag names
  *     responses:
  *       201:
- *         description: Note created successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Note'
- *       400:
- *         description: Invalid request
- *       401:
- *         description: Unauthorized
+ *         description: Note created
  */
 router.post('/note', async (req, res) => {
     try {

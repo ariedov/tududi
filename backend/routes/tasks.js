@@ -1184,65 +1184,39 @@ async function computeTaskMetrics(userId, userTimezone = 'UTC') {
 
 /**
  * @swagger
- * /api/tasks:
+ * /tasks:
  *   get:
- *     summary: Get tasks with filtering and grouping options
- *     tags: [Tasks]
- *     security:
- *       - cookieAuth: []
+ *     summary: Get all tasks for the authenticated user
  *     parameters:
  *       - in: query
  *         name: type
  *         schema:
  *           type: string
- *           enum: [today, upcoming, completed, archived, all]
+ *           enum: [all, upcoming, today, overdue]
  *         description: Filter tasks by type
- *       - in: query
- *         name: status
- *         schema:
- *           type: string
- *           enum: [pending, completed, archived]
- *         description: Filter by task status
- *       - in: query
- *         name: project_id
- *         schema:
- *           type: integer
- *         description: Filter by project ID
- *       - in: query
- *         name: groupBy
- *         schema:
- *           type: string
- *           enum: [day, project]
- *         description: Group tasks by day or project
- *       - in: query
- *         name: order_by
- *         schema:
- *           type: string
- *           example: "created_at:desc"
- *         description: Sort order (field:direction)
  *     responses:
  *       200:
- *         description: List of tasks with metrics
+ *         description: List of tasks
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 tasks:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/Task'
- *                 metrics:
- *                   type: object
- *                   properties:
- *                     total_open_tasks:
- *                       type: integer
- *                     tasks_pending_over_month:
- *                       type: integer
- *                     tasks_in_progress_count:
- *                       type: integer
- *       401:
- *         description: Unauthorized
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                   name:
+ *                     type: string
+ *                   description:
+ *                     type: string
+ *                   status:
+ *                     type: string
+ *                   priority:
+ *                     type: string
+ *                   dueDate:
+ *                     type: string
+ *                     format: date-time
  */
 router.get('/tasks', async (req, res) => {
     try {
@@ -1516,63 +1490,30 @@ router.get('/task/:id/subtasks', async (req, res) => {
 
 /**
  * @swagger
- * /api/task:
+ * /task:
  *   post:
  *     summary: Create a new task
- *     tags: [Tasks]
- *     security:
- *       - cookieAuth: []
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - name
  *             properties:
  *               name:
  *                 type: string
- *                 description: Task name
- *                 example: "Complete project documentation"
  *               priority:
  *                 type: string
- *                 enum: [low, medium, high]
- *                 description: Task priority
- *               status:
- *                 type: string
- *                 enum: [pending, completed, archived]
- *                 description: Task status
  *               due_date:
  *                 type: string
  *                 format: date-time
- *                 description: Task due date
- *               project_id:
- *                 type: integer
- *                 description: Associated project ID
+ *               status:
+ *                 type: string
  *               note:
  *                 type: string
- *                 description: Task description (Markdown supported)
- *               tags:
- *                 type: array
- *                 items:
- *                   type: string
- *                 description: Array of tag names
- *               recurrence_type:
- *                 type: string
- *                 enum: [daily, weekly, monthly, yearly]
- *                 description: Recurring pattern
  *     responses:
  *       201:
- *         description: Task created successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Task'
- *       400:
- *         description: Invalid request
- *       401:
- *         description: Unauthorized
+ *         description: Task created
  */
 router.post('/task', async (req, res) => {
     try {

@@ -8,29 +8,12 @@ const { getAuthenticatedUserId } = require('../utils/request-utils');
 
 /**
  * @swagger
- * /api/areas:
+ * /areas:
  *   get:
- *     summary: Get all areas
- *     tags: [Areas]
- *     security:
- *       - cookieAuth: []
+ *     summary: Get all areas for the authenticated user
  *     responses:
  *       200:
  *         description: List of areas
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/Area'
- *       401:
- *         description: Unauthorized
- *       500:
- *         description: Internal server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
  */
 router.get('/areas', async (req, res) => {
     try {
@@ -112,46 +95,25 @@ router.get('/areas/:uid', async (req, res) => {
 
 /**
  * @swagger
- * /api/areas:
+ * /areas:
  *   post:
  *     summary: Create a new area
- *     tags: [Areas]
- *     security:
- *       - cookieAuth: []
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - name
  *             properties:
  *               name:
  *                 type: string
- *                 description: Area name
- *                 example: "Work"
  *               description:
  *                 type: string
- *                 description: Area description
- *                 example: "Work-related projects and tasks"
+ *             required:
+ *               - name
  *     responses:
  *       201:
- *         description: Area created successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Area'
- *       400:
- *         description: Invalid request
- *       401:
- *         description: Unauthorized
- *       500:
- *         description: Internal server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
+ *         description: Area created
  */
 router.post('/areas', async (req, res) => {
     try {
@@ -184,21 +146,16 @@ router.post('/areas', async (req, res) => {
 
 /**
  * @swagger
- * /api/areas/{uid}:
+ * /areas/{uid}:
  *   patch:
  *     summary: Update an area
- *     tags: [Areas]
- *     security:
- *       - cookieAuth: []
  *     parameters:
  *       - in: path
  *         name: uid
  *         required: true
  *         schema:
  *           type: string
- *         description: Area UID
  *     requestBody:
- *       required: true
  *       content:
  *         application/json:
  *           schema:
@@ -206,29 +163,11 @@ router.post('/areas', async (req, res) => {
  *             properties:
  *               name:
  *                 type: string
- *                 description: Area name
  *               description:
  *                 type: string
- *                 description: Area description
  *     responses:
  *       200:
- *         description: Area updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Area'
- *       400:
- *         description: Invalid request
- *       401:
- *         description: Unauthorized
- *       404:
- *         description: Area not found
- *       500:
- *         description: Internal server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
+ *         description: Area updated
  */
 router.patch('/areas/:uid', async (req, res) => {
     try {

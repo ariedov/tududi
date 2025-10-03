@@ -8,21 +8,12 @@ const router = express.Router();
 
 /**
  * @swagger
- * /api/version:
+ * /version:
  *   get:
- *     summary: Get API version
- *     tags: [Authentication]
+ *     summary: Get application version
  *     responses:
  *       200:
- *         description: API version
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 version:
- *                   type: string
- *                   example: "1.0.0"
+ *         description: Version info
  */
 router.get('/version', (req, res) => {
     res.json({ version: packageJson.version });
@@ -30,39 +21,12 @@ router.get('/version', (req, res) => {
 
 /**
  * @swagger
- * /api/current_user:
+ * /current_user:
  *   get:
- *     summary: Get current authenticated user
- *     tags: [Authentication]
- *     security:
- *       - cookieAuth: []
+ *     summary: Get current authenticated user info
  *     responses:
  *       200:
- *         description: Current user information
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 user:
- *                   type: object
- *                   properties:
- *                     uid:
- *                       type: string
- *                     email:
- *                       type: string
- *                     name:
- *                       type: string
- *                     surname:
- *                       type: string
- *                     language:
- *                       type: string
- *                     appearance:
- *                       type: string
- *                     timezone:
- *                       type: string
- *                     is_admin:
- *                       type: boolean
+ *         description: User info or null if not authenticated
  */
 router.get('/current_user', async (req, res) => {
     try {
@@ -104,63 +68,31 @@ router.get('/current_user', async (req, res) => {
 
 /**
  * @swagger
- * /api/login:
+ * /login:
  *   post:
- *     summary: Login to the application
- *     tags: [Authentication]
+ *     summary: Authenticate user and create session
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - email
- *               - password
  *             properties:
  *               email:
  *                 type: string
  *                 format: email
- *                 example: "user@example.com"
  *               password:
  *                 type: string
- *                 format: password
- *                 example: "password123"
+ *             required:
+ *               - email
+ *               - password
  *     responses:
  *       200:
- *         description: Successfully logged in
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 user:
- *                   type: object
- *                   properties:
- *                     uid:
- *                       type: string
- *                     email:
- *                       type: string
- *                     name:
- *                       type: string
- *                     surname:
- *                       type: string
- *                     language:
- *                       type: string
- *                     appearance:
- *                       type: string
- *                     timezone:
- *                       type: string
- *                     is_admin:
- *                       type: boolean
- *       400:
- *         description: Invalid parameters
+ *         description: Login successful
  *       401:
  *         description: Invalid credentials
- *       500:
- *         description: Internal server error
  */
-router.post('/login', authLimiter, async (req, res) => {
+router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
 
@@ -211,25 +143,12 @@ router.post('/login', authLimiter, async (req, res) => {
 
 /**
  * @swagger
- * /api/logout:
+ * /logout:
  *   get:
- *     summary: Logout from the application
- *     tags: [Authentication]
- *     security:
- *       - cookieAuth: []
+ *     summary: Logout and destroy session
  *     responses:
  *       200:
- *         description: Successfully logged out
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Logged out successfully"
- *       500:
- *         description: Could not log out
+ *         description: Logout successful
  */
 router.get('/logout', (req, res) => {
     req.session.destroy((err) => {
