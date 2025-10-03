@@ -5,7 +5,15 @@ const { logError } = require('../services/logService');
 const _ = require('lodash');
 const router = express.Router();
 
-// GET /api/areas
+/**
+ * @swagger
+ * /areas:
+ *   get:
+ *     summary: Get all areas for the authenticated user
+ *     responses:
+ *       200:
+ *         description: List of areas
+ */
 router.get('/areas', async (req, res) => {
     try {
         const areas = await Area.findAll({
@@ -44,7 +52,28 @@ router.get('/areas/:uid', async (req, res) => {
     }
 });
 
-// POST /api/areas
+/**
+ * @swagger
+ * /areas:
+ *   post:
+ *     summary: Create a new area
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *             required:
+ *               - name
+ *     responses:
+ *       201:
+ *         description: Area created
+ */
 router.post('/areas', async (req, res) => {
     try {
         const { name, description } = req.body;
@@ -71,7 +100,31 @@ router.post('/areas', async (req, res) => {
     }
 });
 
-// PATCH /api/areas/:uid
+/**
+ * @swagger
+ * /areas/{uid}:
+ *   patch:
+ *     summary: Update an area
+ *     parameters:
+ *       - in: path
+ *         name: uid
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Area updated
+ */
 router.patch('/areas/:uid', async (req, res) => {
     try {
         if (!isValidUid(req.params.uid))
