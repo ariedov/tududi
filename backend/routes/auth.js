@@ -5,12 +5,28 @@ const { logError } = require('../services/logService');
 const packageJson = require('../../package.json');
 const router = express.Router();
 
-// Get version
+/**
+ * @swagger
+ * /version:
+ *   get:
+ *     summary: Get application version
+ *     responses:
+ *       200:
+ *         description: Version info
+ */
 router.get('/version', (req, res) => {
     res.json({ version: packageJson.version });
 });
 
-// Get current user
+/**
+ * @swagger
+ * /current_user:
+ *   get:
+ *     summary: Get current authenticated user info
+ *     responses:
+ *       200:
+ *         description: User info or null if not authenticated
+ */
 router.get('/current_user', async (req, res) => {
     try {
         if (req.session && req.session.userId) {
@@ -49,7 +65,32 @@ router.get('/current_user', async (req, res) => {
     }
 });
 
-// Login
+/**
+ * @swagger
+ * /login:
+ *   post:
+ *     summary: Authenticate user and create session
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *             required:
+ *               - email
+ *               - password
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *       401:
+ *         description: Invalid credentials
+ */
 router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -99,7 +140,15 @@ router.post('/login', async (req, res) => {
     }
 });
 
-// Logout
+/**
+ * @swagger
+ * /logout:
+ *   get:
+ *     summary: Logout and destroy session
+ *     responses:
+ *       200:
+ *         description: Logout successful
+ */
 router.get('/logout', (req, res) => {
     req.session.destroy((err) => {
         if (err) {
