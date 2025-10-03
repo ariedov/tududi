@@ -54,7 +54,21 @@ async function updateNoteTags(note, tagsArray, userId) {
     }
 }
 
-// GET /api/notes
+/**
+ * @swagger
+ * /notes:
+ *   get:
+ *     summary: Get all notes for the authenticated user
+ *     parameters:
+ *       - in: query
+ *         name: order_by
+ *         schema:
+ *           type: string
+ *         description: Order by field and direction (e.g., title:asc)
+ *     responses:
+ *       200:
+ *         description: List of notes
+ */
 router.get('/notes', async (req, res) => {
     try {
         const orderBy = req.query.order_by || 'title:asc';
@@ -139,7 +153,32 @@ router.get(
     }
 );
 
-// POST /api/note
+/**
+ * @swagger
+ * /note:
+ *   post:
+ *     summary: Create a new note
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               content:
+ *                 type: string
+ *               project_uid:
+ *                 type: string
+ *               tags:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *     responses:
+ *       201:
+ *         description: Note created
+ */
 router.post('/note', async (req, res) => {
     try {
         const { title, content, project_uid, project_id, tags } = req.body;
