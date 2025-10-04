@@ -214,7 +214,7 @@ router.get('/projects', async (req, res) => {
                 {
                     model: Area,
                     required: false,
-                    attributes: ['name'],
+                    attributes: ['uid', 'name'],
                 },
                 {
                     model: Tag,
@@ -340,7 +340,7 @@ router.get('/project/:uidSlug', async (req, res) => {
                         },
                     ],
                 },
-                { model: Area, required: false, attributes: ['id', 'name'] },
+                { model: Area, required: false, attributes: ['uid', 'name'] },
                 {
                     model: Tag,
                     attributes: ['id', 'name', 'uid'],
