@@ -5,14 +5,14 @@ const { getConfig } = require('../config/config');
 const config = getConfig();
 const fs = require('fs');
 const {
-    Project,
-    Task,
-    Tag,
-    Area,
-    Note,
-    User,
-    Permission,
-    sequelize,
+Project,
+Task,
+Tag,
+Area,
+Note,
+User,
+Permission,
+sequelize,
 } = require('../models');
 const permissionsService = require('../services/permissionsService');
 const { Op } = require('sequelize');
@@ -36,211 +36,389 @@ const { requireAuth } = require('../middleware/auth');
 
 // Helper function to safely format dates
 const formatDate = (date) => {
-    if (!date) return null;
-    try {
-        const dateObj = new Date(date);
-        if (isNaN(dateObj.getTime())) return null;
-        return dateObj.toISOString();
-    } catch (error) {
-        return null;
-    }
+if (!date) return null;
+try {
+    const dateObj = new Date(date);
+    if (isNaN(dateObj.getTime())) return null;
+    return dateObj.toISOString();
+} catch (error) {
+    return null;
+}
 };
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        const uploadDir = path.join(config.uploadPath, 'projects');
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
-        }
-        cb(null, uploadDir);
-    },
-    filename: function (req, file, cb) {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-        cb(null, 'project-' + uniqueSuffix + path.extname(file.originalname));
-    },
+destination: function (req, file, cb) {
+    const uploadDir = path.join(config.uploadPath, 'projects');
+    if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+},
+filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, 'project-' + uniqueSuffix + path.extname(file.originalname));
+},
 });
 
 const upload = multer({
-    storage: storage,
-    limits: {
-        fileSize: 5 * 1024 * 1024, // 5MB limit
-    },
-    fileFilter: function (req, file, cb) {
-        const allowedTypes = /jpeg|jpg|png|gif|webp/;
-        const extname = allowedTypes.test(
-            path.extname(file.originalname).toLowerCase()
-        );
-        const mimetype = allowedTypes.test(file.mimetype);
+storage: storage,
+limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+},
+fileFilter: function (req, file, cb) {
+    const allowedTypes = /jpeg|jpg|png|gif|webp/;
+    const extname = allowedTypes.test(
+        path.extname(file.originalname).toLowerCase()
+    );
+    const mimetype = allowedTypes.test(file.mimetype);
 
-        if (mimetype && extname) {
-            return cb(null, true);
-        } else {
-            cb(new Error('Only image files are allowed!'));
-        }
-    },
+    if (mimetype && extname) {
+        return cb(null, true);
+    } else {
+        cb(new Error('Only image files are allowed!'));
+    }
+},
 });
 
 // Helper function to update project tags
 async function updateProjectTags(project, tagsData, userId) {
-    if (!tagsData) return;
+if (!tagsData) return;
 
-    // Validate and filter tag names
-    const validTagNames = [];
-    const invalidTags = [];
+// Validate and filter tag names
+const validTagNames = [];
+const invalidTags = [];
 
-    for (const tag of tagsData) {
-        const validation = validateTagName(tag.name);
-        if (validation.valid) {
-            // Check for duplicates
-            if (!validTagNames.includes(validation.name)) {
-                validTagNames.push(validation.name);
-            }
-        } else {
-            invalidTags.push({ name: tag.name, error: validation.error });
+for (const tag of tagsData) {
+    const validation = validateTagName(tag.name);
+    if (validation.valid) {
+        // Check for duplicates
+        if (!validTagNames.includes(validation.name)) {
+            validTagNames.push(validation.name);
         }
+    } else {
+        invalidTags.push({ name: tag.name, error: validation.error });
     }
+}
 
-    // If there are invalid tags, throw an error
-    if (invalidTags.length > 0) {
-        throw new Error(
-            `Invalid tag names: ${invalidTags.map((t) => `"${t.name}" (${t.error})`).join(', ')}`
-        );
-    }
-
-    if (validTagNames.length === 0) {
-        await project.setTags([]);
-        return;
-    }
-
-    // Find existing tags
-    const existingTags = await Tag.findAll({
-        where: { user_id: userId, name: validTagNames },
-    });
-
-    // Create new tags
-    const existingTagNames = existingTags.map((tag) => tag.name);
-    const newTagNames = validTagNames.filter(
-        (name) => !existingTagNames.includes(name)
+// If there are invalid tags, throw an error
+if (invalidTags.length > 0) {
+    throw new Error(
+        `Invalid tag names: ${invalidTags.map((t) => `"${t.name}" (${t.error})`).join(', ')}`
     );
+}
 
-    const createdTags = await Promise.all(
-        newTagNames.map((name) => Tag.create({ name, user_id: userId }))
-    );
+if (validTagNames.length === 0) {
+    await project.setTags([]);
+    return;
+}
 
-    // Set all tags to project
-    const allTags = [...existingTags, ...createdTags];
-    await project.setTags(allTags);
+// Find existing tags
+const existingTags = await Tag.findAll({
+    where: { user_id: userId, name: validTagNames },
+});
+
+// Create new tags
+const existingTagNames = existingTags.map((tag) => tag.name);
+const newTagNames = validTagNames.filter(
+    (name) => !existingTagNames.includes(name)
+);
+
+const createdTags = await Promise.all(
+    newTagNames.map((name) => Tag.create({ name, user_id: userId }))
+);
+
+// Set all tags to project
+const allTags = [...existingTags, ...createdTags];
+await project.setTags(allTags);
 }
 
 // POST /api/upload/project-image
 router.post(
-    '/upload/project-image',
-    requireAuth,
-    upload.single('image'),
-    (req, res) => {
-        try {
-            if (!req.file) {
-                return res
-                    .status(400)
-                    .json({ error: 'No image file provided' });
-            }
-
-            // Return the relative URL that can be accessed from the frontend
-            const imageUrl = `/api/uploads/projects/${req.file.filename}`;
-            res.json({ imageUrl });
-        } catch (error) {
-            logError('Error uploading image:', error);
-            res.status(500).json({ error: 'Failed to upload image' });
+'/upload/project-image',
+requireAuth,
+upload.single('image'),
+(req, res) => {
+    try {
+        if (!req.file) {
+            return res
+                .status(400)
+                .json({ error: 'No image file provided' });
         }
+
+        // Return the relative URL that can be accessed from the frontend
+        const imageUrl = `/api/uploads/projects/${req.file.filename}`;
+        res.json({ imageUrl });
+    } catch (error) {
+        logError('Error uploading image:', error);
+        res.status(500).json({ error: 'Failed to upload image' });
     }
+}
 );
 
 /**
- * @swagger
- * /projects:
- *   get:
- *     summary: Get all projects for the authenticated user
- *     parameters:
- *       - in: query
- *         name: state
- *         schema:
- *           type: string
- *         description: Filter by project state
- *       - in: query
- *         name: area_id
- *         schema:
- *           type: integer
- *         description: Filter by area ID
- *     responses:
- *       200:
- *         description: List of projects
- */
+* @swagger
+* /projects:
+*   get:
+*     summary: Get all projects for the authenticated user
+*     parameters:
+*       - in: query
+*         name: state
+*         schema:
+*           type: string
+*         description: Filter by project state
+*       - in: query
+*         name: area_id
+*         schema:
+*           type: integer
+*         description: Filter by area ID
+*     responses:
+*       200:
+*         description: List of projects
+*/
 router.get('/projects', async (req, res) => {
+try {
+    const { state, active, pin_to_sidebar, area_id, area } = req.query;
+
+    // Base: owned or shared projects
+    const ownedOrShared =
+        await permissionsService.ownershipOrPermissionWhere(
+            'project',
+            req.session.userId
+        );
+    let whereClause = ownedOrShared;
+
+    // Filter by state (new primary filter)
+    if (state && state !== 'all') {
+        if (Array.isArray(state)) {
+            whereClause.state = { [Op.in]: state };
+        } else {
+            whereClause.state = state;
+        }
+    }
+
+    // Legacy support for active filter - map to states
+    if (active === 'true') {
+        whereClause.state = {
+            [Op.in]: ['planned', 'in_progress', 'blocked'],
+        };
+    } else if (active === 'false') {
+        whereClause.state = { [Op.in]: ['idea', 'completed'] };
+    }
+
+    // Filter by pinned status
+    if (pin_to_sidebar === 'true') {
+        whereClause.pin_to_sidebar = true;
+    } else if (pin_to_sidebar === 'false') {
+        whereClause.pin_to_sidebar = false;
+    }
+
+    // Filter by area - support both numeric area_id and uid-slug area
+    if (area && area !== '') {
+        // Extract uid from uid-slug format
+        const uid = extractUidFromSlug(area);
+        if (uid) {
+            const areaRecord = await Area.findOne({
+                where: { uid: uid },
+                attributes: ['id'],
+            });
+            if (areaRecord) {
+                // add to AND filter
+                whereClause = {
+                    [Op.and]: [whereClause, { area_id: areaRecord.id }],
+                };
+            }
+        }
+    } else if (area_id && area_id !== '') {
+        // Legacy support for numeric area_id
+        whereClause = { [Op.and]: [whereClause, { area_id }] };
+    }
+
+    const projects = await Project.findAll({
+        where: whereClause,
+        include: [
+            {
+                model: Task,
+                required: false,
+                attributes: ['id', 'status'],
+            },
+            {
+                model: Area,
+                required: false,
+                attributes: ['id', 'uid', 'name'],
+            },
+            {
+                model: Tag,
+                attributes: ['id', 'name', 'uid'],
+                through: { attributes: [] },
+            },
+            {
+                model: User,
+                required: false,
+                attributes: ['uid'],
+            },
+        ],
+        order: [['name', 'ASC']],
+    });
+
+    const { grouped } = req.query;
+
+    // Calculate task status counts and share counts for each project
+    const projectIds = projects.map((p) => p.id);
+    const projectUids = projects.map((p) => p.uid).filter(Boolean);
+
+    // Get share counts for all projects in one query using permissions table
+    const shareCountMap = {};
+    if (projectUids.length > 0) {
+        const shareCounts = await Permission.findAll({
+            attributes: [
+                'resource_uid',
+                [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+            ],
+            where: {
+                resource_type: 'project',
+                resource_uid: { [Op.in]: projectUids },
+            },
+            group: ['resource_uid'],
+            raw: true,
+        });
+
+        // Create a map of project_uid to share_count
+        const uidToCountMap = {};
+        shareCounts.forEach((item) => {
+            uidToCountMap[item.resource_uid] = parseInt(item.count, 10);
+        });
+
+        // Map uids back to project ids
+        projects.forEach((project) => {
+            if (project.uid && uidToCountMap[project.uid]) {
+                shareCountMap[project.id] = uidToCountMap[project.uid];
+            }
+        });
+    }
+
+    const taskStatusCounts = {};
+    const enhancedProjects = projects.map((project) => {
+        const tasks = project.Tasks || [];
+        const taskStatus = {
+            total: tasks.length,
+            done: tasks.filter((t) => t.status === 2).length,
+            in_progress: tasks.filter((t) => t.status === 1).length,
+            not_started: tasks.filter((t) => t.status === 0).length,
+        };
+
+        taskStatusCounts[project.id] = taskStatus;
+
+        const projectJson = project.toJSON();
+        const shareCount = shareCountMap[project.id] || 0;
+
+        return {
+            ...projectJson,
+            tags: projectJson.Tags || [], // Normalize Tags to tags
+            due_date_at: formatDate(project.due_date_at),
+            task_status: taskStatus,
+            completion_percentage:
+                taskStatus.total > 0
+                    ? Math.round((taskStatus.done / taskStatus.total) * 100)
+                    : 0,
+            user_uid: projectJson.User?.uid,
+            share_count: shareCount,
+            is_shared: shareCount > 0,
+        };
+    });
+
+    // If grouped=true, return grouped format
+    if (grouped === 'true') {
+        const groupedProjects = {};
+        enhancedProjects.forEach((project) => {
+            const areaName = project.Area ? project.Area.name : 'No Area';
+            if (!groupedProjects[areaName]) {
+                groupedProjects[areaName] = [];
+            }
+            groupedProjects[areaName].push(project);
+        });
+        res.json(groupedProjects);
+    } else {
+        res.json({
+            projects: enhancedProjects,
+        });
+    }
+} catch (error) {
+    logError('Error fetching projects:', error);
+    res.status(500).json({ error: 'Internal server error' });
+}
+});
+
+// GET /api/project/:uidSlug (UID-slug format only)
+router.get(
+'/project/:uidSlug',
+hasAccess(
+    'ro',
+    'project',
+    async (req) => {
+        const uid = extractUidFromSlug(req.params.uidSlug);
+        // Check if project exists - return null if it doesn't (triggers 404)
+        const project = await Project.findOne({
+            where: { uid },
+            attributes: ['uid'],
+        });
+        return project ? project.uid : null;
+    },
+    { notFoundMessage: 'Project not found' }
+),
+async (req, res) => {
     try {
-        const { state, active, pin_to_sidebar, area_id, area } = req.query;
-
-        // Base: owned or shared projects
-        const ownedOrShared =
-            await permissionsService.ownershipOrPermissionWhere(
-                'project',
-                req.authUserId
-            );
-        let whereClause = ownedOrShared;
-
-        // Filter by state (new primary filter)
-        if (state && state !== 'all') {
-            if (Array.isArray(state)) {
-                whereClause.state = { [Op.in]: state };
-            } else {
-                whereClause.state = state;
-            }
-        }
-
-        // Legacy support for active filter - map to states
-        if (active === 'true') {
-            whereClause.state = {
-                [Op.in]: ['planned', 'in_progress', 'blocked'],
-            };
-        } else if (active === 'false') {
-            whereClause.state = { [Op.in]: ['idea', 'completed'] };
-        }
-
-        // Filter by pinned status
-        if (pin_to_sidebar === 'true') {
-            whereClause.pin_to_sidebar = true;
-        } else if (pin_to_sidebar === 'false') {
-            whereClause.pin_to_sidebar = false;
-        }
-
-        // Filter by area - support both numeric area_id and uid-slug area
-        if (area && area !== '') {
-            // Extract uid from uid-slug format
-            const uid = extractUidFromSlug(area);
-            if (uid) {
-                const areaRecord = await Area.findOne({
-                    where: { uid: uid },
-                    attributes: ['id'],
-                });
-                if (areaRecord) {
-                    // add to AND filter
-                    whereClause = {
-                        [Op.and]: [whereClause, { area_id: areaRecord.id }],
-                    };
-                }
-            }
-        } else if (area_id && area_id !== '') {
-            // Legacy support for numeric area_id
-            whereClause = { [Op.and]: [whereClause, { area_id }] };
-        }
-
-        const projects = await Project.findAll({
-            where: whereClause,
+        const uidPart = extractUidFromSlug(req.params.uidSlug);
+        const project = await Project.findOne({
+            where: { uid: uidPart },
             include: [
                 {
                     model: Task,
                     required: false,
-                    attributes: ['id', 'status'],
+                    where: {
+                        parent_task_id: null,
+                        recurring_parent_id: null,
+                    },
+                    include: [
+                        {
+                            model: Tag,
+                            attributes: ['id', 'name', 'uid'],
+                            through: { attributes: [] },
+                            required: false,
+                        },
+                        {
+                            model: Task,
+                            as: 'Subtasks',
+                            include: [
+                                {
+                                    model: Tag,
+                                    attributes: ['id', 'name', 'uid'],
+                                    through: { attributes: [] },
+                                    required: false,
+                                },
+                            ],
+                            required: false,
+                        },
+                    ],
+                },
+                {
+                    model: Note,
+                    required: false,
+                    attributes: [
+                        'id',
+                        'uid',
+                        'title',
+                        'content',
+                        'created_at',
+                        'updated_at',
+                    ],
+                    include: [
+                        {
+                            model: Tag,
+                            attributes: ['id', 'name', 'uid'],
+                            through: { attributes: [] },
+                        },
+                    ],
                 },
                 {
                     model: Area,
@@ -252,340 +430,162 @@ router.get('/projects', async (req, res) => {
                     attributes: ['id', 'name', 'uid'],
                     through: { attributes: [] },
                 },
-                {
-                    model: User,
-                    required: false,
-                    attributes: ['uid'],
-                },
             ],
-            order: [['name', 'ASC']],
         });
 
-        const { grouped } = req.query;
+        const projectJson = project.toJSON();
 
-        // Calculate task status counts and share counts for each project
-        const projectIds = projects.map((p) => p.id);
-        const projectUids = projects.map((p) => p.uid).filter(Boolean);
+        // Normalize task data to match frontend expectations
+        const normalizedTasks = projectJson.Tasks
+            ? projectJson.Tasks.map((task) => {
+                  const normalizedTask = {
+                      ...task,
+                      tags: task.Tags || [],
+                      subtasks: task.Subtasks || [],
+                      due_date: task.due_date
+                          ? typeof task.due_date === 'string'
+                              ? task.due_date.split('T')[0]
+                              : task.due_date.toISOString().split('T')[0]
+                          : null,
+                  };
+                  delete normalizedTask.Tags;
+                  delete normalizedTask.Subtasks;
+                  return normalizedTask;
+              })
+            : [];
 
-        // Get share counts for all projects in one query using permissions table
-        const shareCountMap = {};
-        if (projectUids.length > 0) {
-            const shareCounts = await Permission.findAll({
-                attributes: [
-                    'resource_uid',
-                    [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-                ],
+        // Normalize note data to match frontend expectations
+        const normalizedNotes = projectJson.Notes
+            ? projectJson.Notes.map((note) => {
+                  const normalizedNote = {
+                      ...note,
+                      tags: note.Tags || [],
+                  };
+                  delete normalizedNote.Tags;
+                  return normalizedNote;
+              })
+            : [];
+
+        // Get share count for this project
+        let shareCount = 0;
+        if (project.uid) {
+            const shareCountResult = await Permission.count({
                 where: {
                     resource_type: 'project',
-                    resource_uid: { [Op.in]: projectUids },
+                    resource_uid: project.uid,
                 },
-                group: ['resource_uid'],
-                raw: true,
             });
-
-            // Create a map of project_uid to share_count
-            const uidToCountMap = {};
-            shareCounts.forEach((item) => {
-                uidToCountMap[item.resource_uid] = parseInt(item.count, 10);
-            });
-
-            // Map uids back to project ids
-            projects.forEach((project) => {
-                if (project.uid && uidToCountMap[project.uid]) {
-                    shareCountMap[project.id] = uidToCountMap[project.uid];
-                }
-            });
+            shareCount = shareCountResult || 0;
         }
 
-        const taskStatusCounts = {};
-        const enhancedProjects = projects.map((project) => {
-            const tasks = project.Tasks || [];
-            const taskStatus = {
-                total: tasks.length,
-                done: tasks.filter((t) => t.status === 2).length,
-                in_progress: tasks.filter((t) => t.status === 1).length,
-                not_started: tasks.filter((t) => t.status === 0).length,
-            };
+        const result = {
+            ...projectJson,
+            tags: projectJson.Tags || [],
+            Tasks: normalizedTasks,
+            Notes: normalizedNotes,
+            due_date_at: formatDate(project.due_date_at),
+            user_id: project.user_id,
+            share_count: shareCount,
+            is_shared: shareCount > 0,
+        };
 
-            taskStatusCounts[project.id] = taskStatus;
-
-            const projectJson = project.toJSON();
-            const shareCount = shareCountMap[project.id] || 0;
-
-            return {
-                ...projectJson,
-                tags: projectJson.Tags || [], // Normalize Tags to tags
-                due_date_at: formatDate(project.due_date_at),
-                task_status: taskStatus,
-                completion_percentage:
-                    taskStatus.total > 0
-                        ? Math.round((taskStatus.done / taskStatus.total) * 100)
-                        : 0,
-                user_uid: projectJson.User?.uid,
-                share_count: shareCount,
-                is_shared: shareCount > 0,
-            };
-        });
-
-        // If grouped=true, return grouped format
-        if (grouped === 'true') {
-            const groupedProjects = {};
-            enhancedProjects.forEach((project) => {
-                const areaName = project.Area ? project.Area.name : 'No Area';
-                if (!groupedProjects[areaName]) {
-                    groupedProjects[areaName] = [];
-                }
-                groupedProjects[areaName].push(project);
-            });
-            res.json(groupedProjects);
-        } else {
-            res.json({
-                projects: enhancedProjects,
-            });
-        }
+        res.json(result);
     } catch (error) {
-        logError('Error fetching projects:', error);
+        logError('Error fetching project:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
-});
-
-// GET /api/project/:uidSlug (UID-slug format only)
-router.get(
-    '/project/:uidSlug',
-    hasAccess(
-        'ro',
-        'project',
-        async (req) => {
-            const uid = extractUidFromSlug(req.params.uidSlug);
-            // Check if project exists - return null if it doesn't (triggers 404)
-            const project = await Project.findOne({
-                where: { uid },
-                attributes: ['uid'],
-            });
-            return project ? project.uid : null;
-        },
-        { notFoundMessage: 'Project not found' }
-    ),
-    async (req, res) => {
-        try {
-            const uidPart = extractUidFromSlug(req.params.uidSlug);
-            const project = await Project.findOne({
-                where: { uid: uidPart },
-                include: [
-                    {
-                        model: Task,
-                        required: false,
-                        where: {
-                            parent_task_id: null,
-                            recurring_parent_id: null,
-                        },
-                        include: [
-                            {
-                                model: Tag,
-                                attributes: ['id', 'name', 'uid'],
-                                through: { attributes: [] },
-                                required: false,
-                            },
-                            {
-                                model: Task,
-                                as: 'Subtasks',
-                                include: [
-                                    {
-                                        model: Tag,
-                                        attributes: ['id', 'name', 'uid'],
-                                        through: { attributes: [] },
-                                        required: false,
-                                    },
-                                ],
-                                required: false,
-                            },
-                        ],
-                    },
-                    {
-                        model: Note,
-                        required: false,
-                        attributes: [
-                            'id',
-                            'uid',
-                            'title',
-                            'content',
-                            'created_at',
-                            'updated_at',
-                        ],
-                        include: [
-                            {
-                                model: Tag,
-                                attributes: ['id', 'name', 'uid'],
-                                through: { attributes: [] },
-                            },
-                        ],
-                    },
-                    {
-                        model: Area,
-                        required: false,
-                        attributes: ['id', 'uid', 'name'],
-                    },
-                    {
-                        model: Tag,
-                        attributes: ['id', 'name', 'uid'],
-                        through: { attributes: [] },
-                    },
-                ],
-            });
-
-            const projectJson = project.toJSON();
-
-            // Normalize task data to match frontend expectations
-            const normalizedTasks = projectJson.Tasks
-                ? projectJson.Tasks.map((task) => {
-                      const normalizedTask = {
-                          ...task,
-                          tags: task.Tags || [],
-                          subtasks: task.Subtasks || [],
-                          due_date: task.due_date
-                              ? typeof task.due_date === 'string'
-                                  ? task.due_date.split('T')[0]
-                                  : task.due_date.toISOString().split('T')[0]
-                              : null,
-                      };
-                      delete normalizedTask.Tags;
-                      delete normalizedTask.Subtasks;
-                      return normalizedTask;
-                  })
-                : [];
-
-            // Normalize note data to match frontend expectations
-            const normalizedNotes = projectJson.Notes
-                ? projectJson.Notes.map((note) => {
-                      const normalizedNote = {
-                          ...note,
-                          tags: note.Tags || [],
-                      };
-                      delete normalizedNote.Tags;
-                      return normalizedNote;
-                  })
-                : [];
-
-            // Get share count for this project
-            let shareCount = 0;
-            if (project.uid) {
-                const shareCountResult = await Permission.count({
-                    where: {
-                        resource_type: 'project',
-                        resource_uid: project.uid,
-                    },
-                });
-                shareCount = shareCountResult || 0;
-            }
-
-            const result = {
-                ...projectJson,
-                tags: projectJson.Tags || [],
-                Tasks: normalizedTasks,
-                Notes: normalizedNotes,
-                due_date_at: formatDate(project.due_date_at),
-                user_id: project.user_id,
-                share_count: shareCount,
-                is_shared: shareCount > 0,
-            };
-
-            res.json(result);
-        } catch (error) {
-            logError('Error fetching project:', error);
-            res.status(500).json({ error: 'Internal server error' });
-        }
-    }
+}
 );
 
 /**
- * @swagger
- * /project:
- *   post:
- *     summary: Create a new project
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *               description:
- *                 type: string
- *               state:
- *                 type: string
- *               area_id:
- *                 type: integer
- *     responses:
- *       201:
- *         description: Project created
- */
+* @swagger
+* /project:
+*   post:
+*     summary: Create a new project
+*     requestBody:
+*       required: true
+*       content:
+*         application/json:
+*           schema:
+*             type: object
+*             properties:
+*               name:
+*                 type: string
+*               description:
+*                 type: string
+*               state:
+*                 type: string
+*               area_id:
+*                 type: integer
+*     responses:
+*       201:
+*         description: Project created
+*/
 router.post('/project', async (req, res) => {
-    try {
-        const {
-            name,
-            description,
-            area_id,
-            priority,
-            due_date_at,
-            image_url,
-            state,
-            tags,
-            Tags,
-        } = req.body;
+try {
+    const {
+        name,
+        description,
+        area_id,
+        priority,
+        due_date_at,
+        image_url,
+        state,
+        tags,
+        Tags,
+    } = req.body;
 
-        // Handle both tags and Tags (Sequelize association format)
-        const tagsData = tags || Tags;
+    // Handle both tags and Tags (Sequelize association format)
+    const tagsData = tags || Tags;
 
-        if (!name || !name.trim()) {
-            return res.status(400).json({ error: 'Project name is required' });
-        }
-
-        // Generate UID explicitly to avoid Sequelize caching issues
-        const projectUid = uid();
-
-        const projectData = {
-            uid: projectUid,
-            name: name.trim(),
-            description: description || '',
-            area_id: area_id || null,
-            pin_to_sidebar: false,
-            priority: priority || null,
-            due_date_at: due_date_at || null,
-            image_url: image_url || null,
-            state: state || 'idea',
-            user_id: req.authUserId,
-        };
-
-        // Create is always allowed for the authenticated user; project is owned by creator
-        const project = await Project.create(projectData);
-
-        // Update tags if provided, but don't let tag errors break project creation
-        try {
-            await updateProjectTags(project, tagsData, req.authUserId);
-        } catch (tagError) {
-            logError(
-                'Tag update failed, but project created successfully:',
-                tagError.message
-            );
-        }
-
-        res.status(201).json({
-            ...project.toJSON(),
-            uid: projectUid, // Use the UID we explicitly generated
-            tags: [], // Start with empty tags - they can be added later
-            due_date_at: formatDate(project.due_date_at),
-        });
-    } catch (error) {
-        logError('Error creating project:', error);
-        res.status(400).json({
-            error: 'There was a problem creating the project.',
-            details: error.errors
-                ? error.errors.map((e) => e.message)
-                : [error.message],
-        });
+    if (!name || !name.trim()) {
+        return res.status(400).json({ error: 'Project name is required' });
     }
+
+    // Generate UID explicitly to avoid Sequelize caching issues
+    const projectUid = uid();
+
+    const projectData = {
+        uid: projectUid,
+        name: name.trim(),
+        description: description || '',
+        area_id: area_id || null,
+        pin_to_sidebar: false,
+        priority: priority || null,
+        due_date_at: due_date_at || null,
+        image_url: image_url || null,
+        state: state || 'idea',
+        user_id: req.session.userId,
+    };
+
+    // Create is always allowed for the authenticated user; project is owned by creator
+    const project = await Project.create(projectData);
+
+    // Update tags if provided, but don't let tag errors break project creation
+    try {
+        await updateProjectTags(project, tagsData, req.session.userId);
+    } catch (tagError) {
+        logError(
+            'Tag update failed, but project created successfully:',
+            tagError.message
+        );
+    }
+
+    res.status(201).json({
+        ...project.toJSON(),
+        uid: projectUid, // Use the UID we explicitly generated
+        tags: [], // Start with empty tags - they can be added later
+        due_date_at: formatDate(project.due_date_at),
+    });
+} catch (error) {
+    logError('Error creating project:', error);
+    res.status(400).json({
+        error: 'There was a problem creating the project.',
+        details: error.errors
+            ? error.errors.map((e) => e.message)
+            : [error.message],
+    });
+}
 });
 
 // PATCH /api/project/:uid
