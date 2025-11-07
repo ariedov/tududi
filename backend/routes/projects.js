@@ -184,7 +184,8 @@ try {
     const ownedOrShared =
         await permissionsService.ownershipOrPermissionWhere(
             'project',
-            req.session.userId
+            req.currentUser.id,
+
         );
     let whereClause = ownedOrShared;
 
@@ -555,7 +556,7 @@ try {
         due_date_at: due_date_at || null,
         image_url: image_url || null,
         state: state || 'idea',
-        user_id: req.session.userId,
+        user_id: req.currentUser.id,
     };
 
     // Create is always allowed for the authenticated user; project is owned by creator
@@ -563,7 +564,7 @@ try {
 
     // Update tags if provided, but don't let tag errors break project creation
     try {
-        await updateProjectTags(project, tagsData, req.session.userId);
+        await updateProjectTags(project, tagsData, req.currentUser.id);
     } catch (tagError) {
         logError(
             'Tag update failed, but project created successfully:',
